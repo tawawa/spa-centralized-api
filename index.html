@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Single Page Application</title>
+    <script src="https://cdn.auth0.com/js/auth0/9.0.2/auth0.js"></script>
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+  </head>
+  <body>
+
+    <ul>
+      <li>
+        <a href="https://demonstration.auth0.com/authorize?scope=openid%20profile%20email%20read:contacts%20read:calendar&audience=organise&response_type=id_token%20token&client_id=OEVVkIGyOnTm5AgqQC08WJ3xQ6hzHNZh&redirect_uri=http://app1.com:3000&nonce=NONCE">
+          Sign In
+        </a>
+      </li>
+      <li>
+        <a id="authenticate" href="#">Sigin Auth0.js</a>
+      </li>
+    </ul>
+
+    <div id="app" style="display:none;">
+      <button id="get-profile">Get Profile JS</button>
+      <button id="get-profile-authentication-userinfo">Get Profile Auth</button>
+      <button id="get-profile-managementapi">Get Profile Mgmt API</button>
+      <button id="get-contacts">List Contacts</button>
+      <button id="get-appointments">List Appointments</button>
+      <div id="results"><pre></pre></div>
+    </div>
+
+
+    <script>
+
+    const AUTH0_DOMAIN = 'demonstration.auth0.com';
+    const AUTH0_CLIENT_ID = 'OEVVkIGyOnTm5AgqQC08WJ3xQ6hzHNZh';
+    const AUTH0_CONNECTION = 'Username-Password-Authentication';
+
+    if (!AUTH0_CLIENT_ID || !AUTH0_DOMAIN || !AUTH0_CONNECTION) {
+      alert('Make sure to set the AUTH0_CLIENT_ID, AUTH0_DOMAIN and AUTH0_CONNECTION variables in auth0-variables.js.');
+    }
+
+    const auth0WebAuth = new auth0.WebAuth({
+      domain: AUTH0_DOMAIN,
+      clientID: AUTH0_CLIENT_ID,
+      redirectUri: 'http://app1.com:3000',
+      responseType: 'id_token token',
+      // audience: `https://${AUTH0_DOMAIN}/userinfo`,
+      audience: `organise`,
+      scope: 'openid profile email read:contacts read:calendar'
+    });
+
+    const auth0Authentication = new auth0.Authentication( auth0WebAuth, {
+      domain: AUTH0_DOMAIN,
+      clientID: AUTH0_CLIENT_ID,
+    });
+
+    function getParameterByName(name) {
+      var match = RegExp('[#&]' + name + '=([^&]*)').exec(window.location.hash);
+      return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+    }
+
+    function getAccessToken() {
+      return getParameterByName('access_token');
+    }
+
+    function getIdToken() {
+      return getParameterByName('id_token');
+    }
+
+    $(function () {
+      $('#authenticate').on('click', function(e) {
+        e.preventDefault();
+        auth0WebAuth.authorize()
+      });
+    });
+
+    $(function () {
+      var access_token = getAccessToken();
+      if (access_token) {
+        $('#app').show();
+      } else {
+        return
+      }
+
+      console.log('Your access token is ' + access_token)
+
+      $('#get-profile').on('click', function(e) {
+        e.preventDefault();
+
+        // Change to the port you're using
+        $.ajax({
+          url: "https://demonstration.auth0.com/userinfo",
+          method: "GET",
+          headers: { "Authorization": "Bearer " + access_token },
+          success: function (data) {
+            $('#results pre').text(JSON.stringify(data, null, 2))
+          }
+        });
+      });
+
+      $('#get-profile-authentication-userinfo').on('click', function(e) {
+        e.preventDefault();
+        auth0Authentication.userInfo(access_token, (err, usrInfo) => {
+          if (err) {
+            // handle error
+            console.error('Failed to get userInfo');
+            return;
+          }
+          $('#results pre').text(JSON.stringify(usrInfo, null, 2))
+        });
+
+      });
+
+      $('#get-profile-managementapi').on('click', function(e) {
+        e.preventDefault();
+          auth0WebAuth.checkSession({
+            audience: 'https://demonstration.auth0.com/api/v2/',
+            scope: 'read:current_user'
+          },
+          function(err, result) {
+            if (!err) {
+              var auth0Manage = new auth0.Management({
+                domain: AUTH0_DOMAIN,
+                token: result.accessToken
+              });
+              auth0Manage.getUser(result.idTokenPayload.sub, function(err, usrInfo) {
+                if (!err) {
+                  // use userInfo
+                  $('#results pre').text(JSON.stringify(usrInfo, null, 2))
+                }
+                else {
+                  // handle error
+                }
+              });
+            }
+            else {
+                // handle error
+            }
+          }
+        );
+      });
+
+      // Use the access token to make API calls
+      $('#get-appointments').on('click', function(e) {
+        e.preventDefault();
+
+        // Change to the port you're using
+        $.ajax({
+          url: "http://localhost:3002/api/appointments",
+          method: "GET",
+          headers: { "Authorization": "Bearer " + access_token },
+          success: function (data) {
+            $('#results pre').text(JSON.stringify(data, null, 2))
+          }
+        });
+      });
+
+      $('#get-contacts').on('click', function(e) {
+        e.preventDefault();
+
+        // Change to the port you're using
+        $.ajax({
+          url: "http://localhost:3001/api/contacts",
+          method: "GET",
+          headers: { "Authorization": "Bearer " + access_token },
+          success: function (data) {
+            $('#results pre').text(JSON.stringify(data, null, 2))
+          }
+        });
+      });
+
+
+    });
+    </script>
+  </body>
+</html>
